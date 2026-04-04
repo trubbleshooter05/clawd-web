@@ -215,7 +215,7 @@ const projects: Project[] = [
 export default function ArchitectureDashboard() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'projects' | 'dataflow'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'projects' | 'dataflow' | 'hardware'>('overview');
 
   const laptopAgents = agents.filter(a => a.location === 'laptop' || a.location === 'both');
   const macminiAgents = agents.filter(a => a.location === 'macmini' || a.location === 'both');
@@ -228,13 +228,19 @@ export default function ArchitectureDashboard() {
       <div style={styles.header}>
         <h1 style={styles.title}>🏗️ OpenClaw System Architecture</h1>
         <p style={styles.subtitle}>
-          Distributed automation across Laptop + Mac mini | {agents.length} agents | {projects.length} projects
+          Hermes laptop (MacBook Air M2) + Mac mini (M1) · {agents.length} agents · {projects.length} projects
+        </p>
+        <p style={styles.hardwarePrinciples}>
+          <strong>How we split machines:</strong> the Air is the <em>control plane</em> (analysis, decisions, triggers,
+          you at the keyboard). The mini is the <em>muscle</em> (sustained CPU, batch work, builds, overnight jobs).
+          Prefer heavy work on the mini once; don’t duplicate the same pipeline on both. Connect with Tailscale or LAN
+          + SSH so the laptop can delegate without fragile port forwarding.
         </p>
       </div>
 
       {/* Tab Navigation */}
       <div style={styles.tabs}>
-        {(['overview', 'agents', 'projects', 'dataflow'] as const).map(tab => (
+        {(['overview', 'agents', 'projects', 'dataflow', 'hardware'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -260,8 +266,8 @@ export default function ArchitectureDashboard() {
             {/* Laptop Section */}
             <div style={styles.computerCard}>
               <div style={styles.computerHeader}>
-                <h2 style={styles.computerTitle}>💻 Laptop</h2>
-                <span style={styles.computerSubtitle}>Analysis & Intelligence</span>
+                <h2 style={styles.computerTitle}>💻 MacBook Air M2 (Hermes)</h2>
+                <span style={styles.computerSubtitle}>Analysis & intelligence — keep orchestration light; avoid long sustained local compute</span>
               </div>
               <div style={styles.computerContent}>
                 <div style={styles.agentsList}>
@@ -282,8 +288,8 @@ export default function ArchitectureDashboard() {
             {/* Mac Mini Section */}
             <div style={styles.computerCard}>
               <div style={styles.computerHeader}>
-                <h2 style={styles.computerTitle}>🖥️ Mac mini (Openclaw)</h2>
-                <span style={styles.computerSubtitle}>Execution & Automation</span>
+                <h2 style={styles.computerTitle}>🖥️ Mac mini · Apple M1 (OpenClaw)</h2>
+                <span style={styles.computerSubtitle}>Execution & automation — better sustained load; schedule heavy cron here</span>
               </div>
               <div style={styles.computerContent}>
                 <div style={styles.agentsList}>
@@ -400,6 +406,46 @@ export default function ArchitectureDashboard() {
           <DataFlowDiagram agents={agents} projects={projects} />
         </div>
       )}
+
+      {activeTab === 'hardware' && (
+        <div style={styles.content}>
+          <HardwareSplit />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HardwareSplit() {
+  return (
+    <div style={styles.hardwarePanel}>
+      <h2 style={styles.hardwarePanelTitle}>Hardware split (why this matters)</h2>
+      <ul style={styles.hardwareList}>
+        <li style={styles.hardwareListItem}>
+          <strong>MacBook Air M2 (Hermes)</strong> — excellent for mobility and interactive work; thermals and “always on”
+          are weaker than a desktop. Best for orchestration, monitoring, and analysis that does not hammer the CPU for long
+          stretches. Hermes / gateway fits here when it is mostly coordinating APIs, not huge local model runs or massive
+          parallel batches.
+        </li>
+        <li style={styles.hardwareListItem}>
+          <strong>Mac mini M1</strong> — better sustained performance; leave it on for batch work, cron, generators, retries,
+          and repo automation.
+        </li>
+        <li style={styles.hardwareListItem}>
+          <strong>Avoid duplication</strong> — one scheduler, clear ownership: mini executes heavy work; laptop does not
+          re-run the same pipeline “just in case.”
+        </li>
+        <li style={styles.hardwareListItem}>
+          <strong>Network</strong> — use Tailscale or LAN + SSH so the laptop can trigger scripts on the mini reliably.
+        </li>
+      </ul>
+      <div style={styles.hardwareCronSketch}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#1a1a1a' }}>Example cron placement</h3>
+        <p style={{ margin: 0, fontSize: '14px', color: '#666', lineHeight: 1.6 }}>
+          Lightweight briefings can run on the laptop; research syncs, content packs, and Blob automation that hit APIs
+          hard or run long — prefer the mini.
+        </p>
+      </div>
     </div>
   );
 }
@@ -532,6 +578,46 @@ const styles = {
     fontSize: '16px',
     color: '#666',
     margin: 0,
+  },
+  hardwarePrinciples: {
+    maxWidth: 900,
+    margin: '20px auto 0',
+    padding: '16px 20px',
+    fontSize: '14px',
+    lineHeight: 1.65,
+    color: '#374151',
+    backgroundColor: '#f0fdf4',
+    border: '1px solid #bbf7d0',
+    borderRadius: '10px',
+    textAlign: 'left' as const,
+  },
+  hardwarePanel: {
+    maxWidth: 900,
+    margin: '0 auto',
+    padding: '8px 0',
+  },
+  hardwarePanelTitle: {
+    fontSize: '22px',
+    fontWeight: 600,
+    margin: '0 0 20px 0',
+    color: '#1a1a1a',
+  },
+  hardwareList: {
+    margin: 0,
+    paddingLeft: '22px',
+    color: '#374151',
+    fontSize: '15px',
+    lineHeight: 1.65,
+  },
+  hardwareListItem: {
+    marginBottom: '16px',
+  },
+  hardwareCronSketch: {
+    marginTop: '28px',
+    padding: '18px',
+    backgroundColor: '#faf5ff',
+    border: '1px solid #e9d5ff',
+    borderRadius: '10px',
   },
   tabs: {
     display: 'flex',
