@@ -28,7 +28,7 @@ export default function SystemDiagramSVG() {
       {/* Hermes Control Plane */}
       <rect x="50" y="30" width="1300" height="155" rx="12" fill="url(#hermesGrad)" stroke="#8B5CF6" strokeWidth="2" />
       <text x="70" y="62" fontSize="22" fontWeight="bold" fill="#7c3aed">⚡ Hermes Control Plane</text>
-      <text x="70" y="82" fontSize="12" fill="#666">MacBook Air M2 · ~/.hermes · gateway + cron + 59 skills</text>
+      <text x="70" y="82" fontSize="12" fill="#666">MacBook Air M2 · 1 gateway · 36 cron · 17 skills · gpt-4o-mini default</text>
 
       <rect x="70" y="95" width="185" height="72" rx="6" fill="#fff" stroke="#8B5CF6" strokeWidth="1.5" />
       <text x="85" y="115" fontSize="11" fontWeight="bold" fill="#7c3aed">hermes-agent</text>

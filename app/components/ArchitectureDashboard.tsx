@@ -130,6 +130,42 @@ const DEV_TOOLS = [
   { name: 'Cowork', config: 'claude.ai', linear: 'Linear MCP connected' },
 ];
 
+interface PersonaAlias {
+  persona: string;
+  role: string;
+  mapsTo: string;
+  model: string;
+  status: 'active' | 'legacy';
+}
+
+const PERSONA_ALIASES: PersonaAlias[] = [
+  { persona: 'Vega', role: 'SEO Commander', mapsTo: 'movieslike-vega · seo-chief · geo-monitor', model: 'Hermes gpt-4o-mini + GSC scripts', status: 'active' },
+  { persona: 'Forge', role: 'Content Scaler', mapsTo: 'movieslike-forge · seo-batch', model: 'Hermes gpt-4o-mini + Python/npm scripts', status: 'active' },
+  { persona: 'Dot', role: 'Analytics Brain', mapsTo: 'friday-metrics-sync · morning-brief', model: 'Hermes gpt-4o-mini', status: 'active' },
+  { persona: 'Scout', role: 'Competitive Intel', mapsTo: 'demand-scout · market-intel · cardsnap-signal-hunter', model: 'Hermes gpt-4o-mini', status: 'active' },
+  { persona: 'Milo', role: 'Retention Specialist', mapsTo: 'fursbliss-campaign · pet-symptom-content-ideas', model: 'Hermes gpt-4o-mini', status: 'active' },
+  { persona: 'Luna', role: 'Visual Creator', mapsTo: 'fursbliss-dalle', model: 'gpt-image-1 (not chat LLM)', status: 'active' },
+  { persona: 'Rico', role: 'Content Distributor', mapsTo: 'fursbliss-social · movieslike-amp · movieslike-link', model: 'Hermes gpt-4o-mini + Meta API scripts', status: 'active' },
+  { persona: 'Vinny', role: 'Analyst', mapsTo: 'hermes-saas-ops · movieslike-rev · friday-metrics-sync', model: 'Hermes gpt-4o-mini', status: 'active' },
+  { persona: 'Ralph', role: 'Operations Manager', mapsTo: 'build-checks · obsidian-daily-sync · kanban_runner', model: 'Scripts + Hermes orchestration', status: 'active' },
+  { persona: 'Gary', role: 'Senior Coder', mapsTo: 'movieslike-forge execution · build_checks_cron.sh', model: 'Was gpt-5.1-codex-mini (diagram only)', status: 'legacy' },
+  { persona: 'Raquella', role: 'Junior Coder', mapsTo: 'Support scripts · UGC shell pipelines', model: 'Was gpt-4o-mini (diagram only)', status: 'legacy' },
+  { persona: 'Joyce', role: 'Platform Researcher', mapsTo: 'demand-scout · market-intel · cardsnap-signal-hunter', model: 'Merged into Scout skills', status: 'legacy' },
+  { persona: 'Greggles', role: 'CEO & Strategist', mapsTo: 'Freedom 50 review · operator briefs · Linear HER', model: 'Human + weekly LLM prompt', status: 'legacy' },
+];
+
+const RUNTIME_STATS = {
+  gatewayProcesses: 1,
+  totalCronJobs: 45,
+  enabledCronJobs: 36,
+  pausedCronJobs: 9,
+  uniqueActiveSkills: 17,
+  hermesModel: 'gpt-4o-mini',
+  hermesProvider: 'OpenAI API (api.openai.com/v1)',
+  imageModel: 'gpt-image-1',
+  scriptModels: 'gpt-4o-mini (CardSnap SEO) · gpt-4o (some FursBliss SEO batch paths)',
+};
+
 const projects: Project[] = [
   {
     id: 'citelens',
@@ -238,7 +274,7 @@ const cronSchedule: CronJob[] = [
   { time: 'Mon/Wed/Fri', name: 'CardSnap Signal Hunter', skill: 'cardsnap-signal-hunter', enabled: true },
 ];
 
-type Tab = 'overview' | 'hermes' | 'linear' | 'skills' | 'projects' | 'schedule' | 'dataflow' | 'obsidian';
+type Tab = 'overview' | 'agents' | 'hermes' | 'linear' | 'skills' | 'projects' | 'schedule' | 'dataflow' | 'obsidian';
 
 export default function ArchitectureDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -253,13 +289,13 @@ export default function ArchitectureDashboard() {
       <div style={styles.header}>
         <h1 style={styles.title}>⚡ Hermes System Architecture</h1>
         <p style={styles.subtitle}>
-          MacBook Air M2 · Hermes control plane · {skillDomains.reduce((n, d) => n + d.skills.length, 0)} skills ·{' '}
-          {enabledJobs} active cron jobs · {projects.length} properties
+          MacBook Air M2 · {RUNTIME_STATS.gatewayProcesses} gateway · {RUNTIME_STATS.enabledCronJobs} active cron jobs ·{' '}
+          {RUNTIME_STATS.uniqueActiveSkills} skills · {projects.length} properties · default {RUNTIME_STATS.hermesModel}
         </p>
         <p style={styles.hardwarePrinciples}>
-          <strong>Current model:</strong> Hermes is the single control plane — cron triggers skills, skills write full
-          reports to Obsidian, Hermes delivers concise summaries to Telegram. No named agent personas; skills are the
-          units of automation. <strong>Income priority:</strong> CiteLens + CardSnap until consistent revenue signal.
+          <strong>Runtime:</strong> One always-on Hermes gateway spins up temporary sessions when cron fires — not 13
+          separate agents. Legacy persona names (Vega, Forge, Luna…) map to skills; see <strong>Agents</strong> tab.{' '}
+          <strong>Income priority:</strong> CiteLens + CardSnap.
         </p>
       </div>
 
@@ -267,6 +303,7 @@ export default function ArchitectureDashboard() {
         {(
           [
             ['overview', 'Overview'],
+            ['agents', 'Agents'],
             ['hermes', 'Hermes'],
             ['linear', 'Linear'],
             ['skills', 'Skills'],
@@ -335,6 +372,12 @@ export default function ArchitectureDashboard() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'agents' && (
+        <div style={styles.content}>
+          <AgentsRuntimePanel />
         </div>
       )}
 
@@ -513,6 +556,96 @@ export default function ArchitectureDashboard() {
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+function AgentsRuntimePanel() {
+  const active = PERSONA_ALIASES.filter(p => p.status === 'active');
+  const legacy = PERSONA_ALIASES.filter(p => p.status === 'legacy');
+
+  return (
+    <div>
+      <h2 style={styles.sectionTitle}>What&apos;s Actually Running</h2>
+      <p style={styles.sectionDesc}>
+        Pulled from <code>~/.hermes/cron/jobs.json</code>, <code>config.yaml</code>, and session logs. Persona names are
+        friendly labels — not separate processes.
+      </p>
+
+      <div style={styles.runtimeGrid}>
+        <div style={styles.runtimeStatCard}>
+          <span style={styles.runtimeStatNum}>{RUNTIME_STATS.gatewayProcesses}</span>
+          <span style={styles.runtimeStatLabel}>Always-on gateway</span>
+          <span style={styles.runtimeStatDetail}>ai.hermes.gateway (launchd)</span>
+        </div>
+        <div style={styles.runtimeStatCard}>
+          <span style={styles.runtimeStatNum}>{RUNTIME_STATS.enabledCronJobs}</span>
+          <span style={styles.runtimeStatLabel}>Active cron jobs</span>
+          <span style={styles.runtimeStatDetail}>{RUNTIME_STATS.pausedCronJobs} paused · {RUNTIME_STATS.totalCronJobs} total</span>
+        </div>
+        <div style={styles.runtimeStatCard}>
+          <span style={styles.runtimeStatNum}>{RUNTIME_STATS.uniqueActiveSkills}</span>
+          <span style={styles.runtimeStatLabel}>Distinct skills invoked</span>
+          <span style={styles.runtimeStatDetail}>13 direct-script jobs · 9 paused</span>
+        </div>
+        <div style={styles.runtimeStatCard}>
+          <span style={styles.runtimeStatNum}>0–1</span>
+          <span style={styles.runtimeStatLabel}>Concurrent sessions</span>
+          <span style={styles.runtimeStatDetail}>Temporary per cron fire, then exit</span>
+        </div>
+      </div>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Models</h3>
+      <div style={styles.componentGrid}>
+        <div style={styles.componentCard}>
+          <strong>Hermes orchestrator (all cron jobs)</strong>
+          <p>{RUNTIME_STATS.hermesModel} via {RUNTIME_STATS.hermesProvider}. No per-job overrides in jobs.json.</p>
+        </div>
+        <div style={styles.componentCard}>
+          <strong>FursBliss images</strong>
+          <p>{RUNTIME_STATS.imageModel} via fursbliss-dalle script (OPENAI_IMAGE_MODEL override)</p>
+        </div>
+        <div style={styles.componentCard}>
+          <strong>SEO batch scripts</strong>
+          <p>{RUNTIME_STATS.scriptModels}</p>
+        </div>
+        <div style={styles.componentCard}>
+          <strong>No-LLM jobs</strong>
+          <p>Vega GSC pull, Reddit grader scrape, GEO monitor, UGC shell scripts, build checks — Python/shell only; Hermes still uses gpt-4o-mini to run the job wrapper.</p>
+        </div>
+      </div>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Legacy Persona → Skill Map</h3>
+      <p style={styles.sectionDesc}>Old org-chart names mapped to what runs today. Active personas have live cron/skills.</p>
+      <div style={styles.aliasTable}>
+        <div style={styles.aliasHeader}>
+          <span>Persona</span>
+          <span>Role</span>
+          <span>Maps to today</span>
+          <span>Model</span>
+        </div>
+        {active.map(row => (
+          <div key={row.persona} style={styles.aliasRow}>
+            <span style={styles.aliasPersona}>{row.persona}</span>
+            <span>{row.role}</span>
+            <span style={styles.aliasSkill}>{row.mapsTo}</span>
+            <span style={styles.aliasModel}>{row.model}</span>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Retired Personas (diagram only)</h3>
+      <p style={styles.sectionDesc}>Mac mini coder roles and CEO persona — work absorbed by Hermes + skills on the Air.</p>
+      <div style={styles.aliasTable}>
+        {legacy.map(row => (
+          <div key={row.persona} style={{ ...styles.aliasRow, opacity: 0.75 }}>
+            <span style={styles.aliasPersona}>{row.persona}</span>
+            <span>{row.role}</span>
+            <span style={styles.aliasSkill}>{row.mapsTo}</span>
+            <span style={styles.aliasModel}>{row.model}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -898,4 +1031,49 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #e9d5ff',
     fontSize: 13,
   },
+  runtimeGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 16,
+  },
+  runtimeStatCard: {
+    padding: 20,
+    backgroundColor: '#faf5ff',
+    borderRadius: 12,
+    border: '1px solid #e9d5ff',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  runtimeStatNum: { fontSize: 36, fontWeight: 700, color: '#7c3aed', lineHeight: 1 },
+  runtimeStatLabel: { fontSize: 14, fontWeight: 600, color: '#1a1a1a', marginTop: 8 },
+  runtimeStatDetail: { fontSize: 11, color: '#666', marginTop: 4 },
+  aliasTable: {
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    overflow: 'hidden',
+    fontSize: 13,
+  },
+  aliasHeader: {
+    display: 'grid',
+    gridTemplateColumns: '90px 140px 1fr 200px',
+    gap: 12,
+    padding: '12px 16px',
+    backgroundColor: '#f3f4f6',
+    fontWeight: 600,
+    color: '#374151',
+  },
+  aliasRow: {
+    display: 'grid',
+    gridTemplateColumns: '90px 140px 1fr 200px',
+    gap: 12,
+    padding: '12px 16px',
+    borderTop: '1px solid #e5e7eb',
+    alignItems: 'start',
+    color: '#374151',
+  },
+  aliasPersona: { fontWeight: 700, color: '#7c3aed' },
+  aliasSkill: { fontFamily: 'monospace', fontSize: 12, color: '#059669' },
+  aliasModel: { fontSize: 12, color: '#666' },
 };
