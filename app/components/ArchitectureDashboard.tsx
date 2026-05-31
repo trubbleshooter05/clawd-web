@@ -1,361 +1,415 @@
 'use client';
 
-import React, { useState } from "react";
-import SystemDiagramSVG from "./SystemDiagramSVG";
+import React, { useState } from 'react';
+import SystemDiagramSVG from './SystemDiagramSVG';
 
-interface Agent {
+interface SkillDomain {
   id: string;
   name: string;
-  role: string;
-  model: string;
   color: string;
-  responsibilities: string[];
-  location: 'laptop' | 'macmini' | 'both';
+  skills: string[];
+  schedule: string;
+  description: string;
 }
 
 interface Project {
   id: string;
   name: string;
-  type: string;
-  status: 'active' | 'inactive' | 'monitoring';
+  domain: string;
+  status: 'active' | 'monitoring' | 'paused';
+  priority: boolean;
   color: string;
-  location: 'laptop' | 'macmini' | 'both';
-  agents: string[];
+  repo: string;
+  obsidian: string;
+  cronJobs: string[];
+  goal: string;
 }
 
-const agents: Agent[] = [
-  // Mac Mini Agents
-  {
-    id: 'greggles',
-    name: 'Greggles',
-    role: 'CEO & Strategist',
-    model: 'gpt-4o-mini',
-    color: '#8B5CF6',
-    responsibilities: ['High-level strategy', 'Project oversight', 'Priority setting', 'Team alignment'],
-    location: 'macmini',
-  },
-  {
-    id: 'gary',
-    name: 'Gary',
-    role: 'Senior Coder',
-    model: 'gpt-5.1-codex-mini',
-    color: '#0EA5E9',
-    responsibilities: ['Build automation scripts', 'Python logic', 'Bug fixes', 'Script improvements'],
-    location: 'macmini',
-  },
-  {
-    id: 'raquella',
-    name: 'Raquella',
-    role: 'Junior Coder',
-    model: 'gpt-4o-mini',
-    color: '#06B6D4',
-    responsibilities: ['Support coding', 'Script execution', 'Testing', 'Documentation'],
-    location: 'macmini',
-  },
-  {
-    id: 'joyce',
-    name: 'Joyce',
-    role: 'Platform Researcher',
-    model: 'gpt-4o-mini',
-    color: '#10B981',
-    responsibilities: ['Scan platforms', 'Identify opportunities', 'Pain point analysis', 'Research synthesis'],
-    location: 'macmini',
-  },
-  {
-    id: 'rico',
-    name: 'Rico',
-    role: 'Content Distributor',
-    model: 'gpt-4o-mini',
-    color: '#F59E0B',
-    responsibilities: ['Content adaptation', 'Platform-ready posts', 'Multi-channel messaging', 'Distribution'],
-    location: 'macmini',
-  },
-  {
-    id: 'ralph',
-    name: 'Ralph',
-    role: 'Operations Manager',
-    model: 'gpt-4o-mini',
-    color: '#EF4444',
-    responsibilities: ['Daily execution', 'Workflow management', 'Retry handling', 'Output delivery'],
-    location: 'macmini',
-  },
-  {
-    id: 'vinny',
-    name: 'Vinny',
-    role: 'Analyst',
-    model: 'gpt-4o-mini',
-    color: '#EC4899',
-    responsibilities: ['Performance review', 'Pattern identification', 'Results analysis', 'Improvement recs'],
-    location: 'macmini',
-  },
-  {
-    id: 'luna',
-    name: 'Luna',
-    role: 'Visual Creator',
-    model: 'DALL-E 3 HD',
-    color: '#F97316',
-    responsibilities: ['Generate visuals', 'Infographics', 'Creative assets', 'Campaign imagery'],
-    location: 'macmini',
-  },
+interface CronJob {
+  time: string;
+  name: string;
+  skill?: string;
+  enabled: boolean;
+}
 
-  // Laptop Agents
+interface HermesPath {
+  path: string;
+  description: string;
+}
+
+interface ObsidianPath {
+  path: string;
+  description: string;
+}
+
+const HERMES_PATHS: HermesPath[] = [
+  { path: '~/.hermes', description: 'Root — gateway, state, sessions' },
+  { path: '~/.hermes/hermes-agent', description: 'Hermes Agent CLI package' },
+  { path: '~/.hermes/hermes-agent/.venv/bin/hermes', description: 'Main executable' },
+  { path: '~/.hermes/skills', description: '59 skill packages (SKILL.md + scripts)' },
+  { path: '~/.hermes/cron/jobs.json', description: 'Single scheduler — user crontab removed' },
+  { path: '~/.hermes/config.yaml', description: 'Model, toolsets, gateway config' },
+  { path: '~/.hermes/.env', description: 'LINEAR_API_KEY, TELEGRAM_*, API keys' },
+  { path: '~/.hermes/logs', description: 'gateway.log · gateway.error.log · cron logs' },
+  { path: '~/.hermes/scripts', description: 'linear_dashboard.py · hermes_master_check.py · run_with_logging' },
+  { path: '~/.hermes/hermes_run.py', description: 'Gateway wrapper — injects context + logs runs' },
+  { path: '~/.hermes/kanban_runner.sh', description: 'Allowlisted safe queue runner (--next)' },
+  { path: '~/.hermes/obsidian_daily_sync.py', description: '9 PM daily vault sync' },
+  { path: '~/.hermes/results/', description: 'Script output fallback (prefer Obsidian)' },
+  { path: '~/Library/LaunchAgents/ai.hermes.gateway.plist', description: 'launchd gateway — always-on' },
+  { path: '~/venv/bin/python3', description: 'Python 3.11 for scripts (not system 3.9)' },
+];
+
+const OBSIDIAN_PATHS: ObsidianPath[] = [
+  { path: '~/ObsidianVault', description: 'Master knowledge vault — memory layer' },
+  { path: '~/ObsidianVault/hermes_system', description: 'Orchestration, SaaS ops, reports' },
+  { path: '~/ObsidianVault/hermes_system/orchestration/agent_orchestration_kanban.md', description: 'Daily command center / dashboard' },
+  { path: '~/ObsidianVault/hermes_system/saas_ops/operator_briefs', description: 'Daily operator briefs' },
+  { path: '~/ObsidianVault/hermes_system/orchestration/kanban_queue.md', description: 'Safe autonomous task queue' },
+  { path: '~/ObsidianVault/hermes_system/saas_ops/backlink_crm', description: 'Backlink opportunity CRM' },
+  { path: '~/ObsidianVault/seo-chief/03_data/keyword_warehouse', description: 'Central keyword warehouse' },
+  { path: '~/ObsidianVault/cardsnap', description: 'CardSnap growth intel + UGC + ads' },
+  { path: '~/ObsidianVault/fursbliss', description: 'FursBliss campaign + pet_symptom_content' },
+  { path: '~/ObsidianVault/logs/automation_runs.md', description: 'Full execution history log' },
+];
+
+const skillDomains: SkillDomain[] = [
   {
-    id: 'vega',
-    name: 'Vega',
-    role: 'SEO Commander',
-    model: 'gpt-4o-mini',
+    id: 'seo',
+    name: 'SEO & Content',
     color: '#8B5CF6',
-    responsibilities: ['GSC data monitoring', 'CTR analysis', 'Keyword opportunities', 'Page prioritization'],
-    location: 'laptop',
+    skills: ['movieslike-vega', 'movieslike-forge', 'movieslike-link', 'seo-chief', 'seo-batch', 'geo-monitor', 'cardsnap-seo-daily'],
+    schedule: '6 AM Vega · 7 AM Forge · 7:05 SEO Chief · 11 PM batch',
+    description: 'GSC monitoring, page generation, affiliate links, nightly SEO batch, GEO health checks across all properties.',
   },
   {
-    id: 'dot',
-    name: 'Dot',
-    role: 'Analytics Brain',
-    model: 'gpt-4o-mini',
-    color: '#0EA5E9',
-    responsibilities: ['GA4 monitoring', 'AdSense tracking', 'Revenue pace', 'Daily briefings'],
-    location: 'laptop',
-  },
-  {
-    id: 'milo',
-    name: 'Milo',
-    role: 'Retention Specialist',
-    model: 'gpt-4o-mini',
-    color: '#10B981',
-    responsibilities: ['User engagement', 'Email sequences', 'Behavioral patterns', 'Onboarding optimization'],
-    location: 'laptop',
-  },
-  {
-    id: 'scout',
-    name: 'Scout',
-    role: 'Competitive Intel',
-    model: 'gpt-4o-mini',
-    color: '#F59E0B',
-    responsibilities: ['Competitor monitoring', 'Market trends', 'Pricing analysis', 'Weekly digests'],
-    location: 'laptop',
-  },
-  {
-    id: 'forge',
-    name: 'Forge',
-    role: 'Content Scaler',
-    model: 'gpt-4o-mini + DALL-E',
+    id: 'growth',
+    name: 'Growth Intel',
     color: '#EF4444',
-    responsibilities: ['Page generation', 'Trending detection', 'Reddit signals', 'Autonomous commits'],
-    location: 'laptop',
+    skills: ['citelens-growth-intel', 'cardsnap-growth-intel', 'cardsnap-signal-hunter', 'cardsnap-reddit-grader', 'cardsnap-content-gen', 'cardsnap-script'],
+    schedule: '7:30 AM CardSnap UGC · 9:20 AM CiteLens UGC · 3× Reddit grader',
+    description: 'Income-priority pipelines. UGC daily packs, Remotion videos, signal hunting, Reddit reply templates.',
   },
+  {
+    id: 'fursbliss',
+    name: 'FursBliss Social',
+    color: '#10B981',
+    skills: ['fursbliss-campaign', 'fursbliss-dalle', 'fursbliss-social', 'pet-symptom-content-ideas'],
+    schedule: '9 AM campaign · 9:30 DALL-E · 10 AM IG/FB post · 9:15 symptom ideas',
+    description: 'Daily social automation — copy generation, DALL-E images, Meta Graph API posting, symptom SEO ideas.',
+  },
+  {
+    id: 'research',
+    name: 'Research & Intel',
+    color: '#F59E0B',
+    skills: ['demand-scout', 'market-intel', 'movieslike-amp', 'movieslike-rev', 'job-hunter'],
+    schedule: '8 AM + 6 PM demand scout · 11 AM market intel',
+    description: 'Cross-business demand research, market intelligence, Reddit seeding drafts, revenue optimization.',
+  },
+  {
+    id: 'ops',
+    name: 'Ops & Health',
+    color: '#0EA5E9',
+    skills: ['hermes-saas-ops', 'hermes-master-doctor', 'friday-metrics-sync', 'geo-monitor', 'daily-sync', 'productivity/linear'],
+    schedule: '7:15 GEO monitor · 10:15 build checks · Fri 7:30 PM metrics · 9 PM Obsidian sync',
+    description: 'System health, operator briefs, keyword warehouse aggregation, Linear issue tracking, nightly doctor.',
+  },
+];
+
+const LINEAR_RULES = [
+  'Create HER issue (In Progress) before fixing Hermes/cron/gateway bugs',
+  'Reopen existing issue on recurrence — never duplicate (HER-6 vs HER-19)',
+  'Close only after same-day verify: hermes_master_check.py PASS',
+  'Commit messages must include HER-N identifier',
+];
+
+const DEV_TOOLS = [
+  { name: 'Cursor', config: '~/.cursor/mcp.json + rules', linear: 'Linear MCP — auto-creates HER issues' },
+  { name: 'Claude Code', config: '~/.claude/CLAUDE.md', linear: 'Linear MCP connected' },
+  { name: 'Codex', config: '~/.codex/config.yaml', linear: 'Linear MCP connected' },
+  { name: 'Cowork', config: 'claude.ai', linear: 'Linear MCP connected' },
 ];
 
 const projects: Project[] = [
   {
-    id: 'openclaw',
-    name: 'OpenClaw',
-    type: 'Agent Framework',
+    id: 'citelens',
+    name: 'CiteLens',
+    domain: 'citelens.com',
     status: 'active',
-    color: '#8B5CF6',
-    location: 'both',
-    agents: ['greggles', 'gary', 'raquella', 'ralph'],
+    priority: true,
+    color: '#EF4444',
+    repo: '~/projects/CiteLens',
+    obsidian: '~/ObsidianVault/projects/citelens',
+    cronJobs: ['Daily CiteLens UGC Pack (9:20 AM)'],
+    goal: 'GEO audit leads · AI citation visibility · early access',
   },
   {
-    id: 'hermes',
-    name: 'Hermes',
-    type: 'Research Agent',
+    id: 'cardsnap',
+    name: 'CardSnap',
+    domain: 'getsnapcard.com',
     status: 'active',
-    color: '#0EA5E9',
-    location: 'macmini',
-    agents: ['gary', 'raquella'],
+    priority: true,
+    color: '#EF4444',
+    repo: '~/projects/cardsnap',
+    obsidian: '~/ObsidianVault/cardsnap',
+    cronJobs: ['UGC Daily (7:30 AM)', 'Reddit Grader (3×)', 'Signal Hunter (M/W/F)', 'SEO Daily (M/T/Th)'],
+    goal: 'Grading ROI decisions · analyzer flow · collector acquisition',
   },
   {
     id: 'fursbliss',
     name: 'FursBliss',
-    type: 'Web App (Supabase)',
+    domain: 'fursbliss.com',
     status: 'active',
+    priority: false,
     color: '#10B981',
-    location: 'both',
-    agents: ['joyce', 'milo', 'rico', 'vinny'],
+    repo: '~/projects/fursbliss',
+    obsidian: '~/ObsidianVault/fursbliss',
+    cronJobs: ['Campaign (9 AM)', 'DALL-E (9:30 AM)', 'Social (10 AM)', 'Pet Symptom Ideas (9:15 AM)'],
+    goal: 'Pet health engagement · symptom SEO · IG/FB growth',
   },
   {
     id: 'movieslike',
-    name: 'movieslike.app',
-    type: 'TMDB Content Hub',
+    name: 'MoviesLike',
+    domain: 'movieslike.app',
     status: 'active',
+    priority: false,
     color: '#F59E0B',
-    location: 'both',
-    agents: ['vega', 'forge', 'joyce', 'vinny'],
+    repo: '~/projects/movieslike',
+    obsidian: '~/ObsidianVault (various)',
+    cronJobs: ['Vega GSC (6 AM)', 'Forge (7 AM/1 PM/7 PM)', 'Link Daily (10 AM)', 'SEO Batch (11 PM)'],
+    goal: 'Mediavine 50K sessions · TMDB page volume · AdSense RPM',
+  },
+  {
+    id: 'watchthis',
+    name: 'WatchThis',
+    domain: 'watchthisapp',
+    status: 'active',
+    priority: false,
+    color: '#0EA5E9',
+    repo: '~/projects/watchthisapp',
+    obsidian: '~/ObsidianVault (various)',
+    cronJobs: ['Forge Monitor (3× daily)', 'Forge Weekly Report (Mon)'],
+    goal: 'Forge execution monitoring · page generation triggers',
   },
   {
     id: 'clawd-web',
     name: 'Clawd-Web',
-    type: 'Next.js Dashboard',
+    domain: 'clawd-web-fawn.vercel.app',
     status: 'active',
-    color: '#EF4444',
-    location: 'laptop',
-    agents: ['dot'],
-  },
-  {
-    id: 'discord-bot',
-    name: 'Discord Bot',
-    type: 'Content Distribution',
-    status: 'active',
-    color: '#EC4899',
-    location: 'macmini',
-    agents: ['rico', 'ralph'],
-  },
-  {
-    id: 'movies-app',
-    name: 'Movies.app',
-    type: 'macOS App',
-    status: 'monitoring',
-    color: '#F97316',
-    location: 'macmini',
-    agents: ['joyce'],
+    priority: false,
+    color: '#8B5CF6',
+    repo: '~/projects/clawd-web',
+    obsidian: '—',
+    cronJobs: [],
+    goal: 'System architecture dashboard · internal ops UI',
   },
 ];
 
+const cronSchedule: CronJob[] = [
+  { time: '6:00 AM', name: 'Vega GSC Daily', skill: 'movieslike-vega', enabled: true },
+  { time: '6:50 AM', name: 'Daily Health Check', enabled: false },
+  { time: '7:00 AM', name: 'Forge Morning', skill: 'movieslike-forge', enabled: true },
+  { time: '7:05 AM', name: 'SEO Chief Daily', skill: 'seo-chief', enabled: true },
+  { time: '7:10 AM', name: 'Forge Monitor Morning', enabled: true },
+  { time: '7:15 AM', name: 'GEO Monitor Daily', skill: 'geo-monitor', enabled: true },
+  { time: '7:30 AM', name: 'CardSnap UGC Daily', enabled: true },
+  { time: '8:00 AM', name: 'Demand Scout Morning', skill: 'demand-scout', enabled: true },
+  { time: '8:00 AM', name: 'CardSnap Reddit Grader', skill: 'cardsnap-reddit-grader', enabled: true },
+  { time: '8:45 AM', name: 'Hermes Daily Digest', enabled: true },
+  { time: '9:00 AM', name: 'FursBliss Campaign', skill: 'fursbliss-campaign', enabled: true },
+  { time: '9:15 AM', name: 'Pet Symptom Content Ideas', enabled: true },
+  { time: '9:20 AM', name: 'Daily CiteLens UGC Pack', enabled: true },
+  { time: '9:30 AM', name: 'FursBliss DALL-E', skill: 'fursbliss-dalle', enabled: true },
+  { time: '10:00 AM', name: 'Link Daily · FursBliss Social · Reddit Grader', enabled: true },
+  { time: '10:15 AM', name: 'Build Checks Daily', enabled: true },
+  { time: '11:00 AM', name: 'Market Intel Daily', skill: 'market-intel', enabled: true },
+  { time: '1:00 PM', name: 'Forge Afternoon · Monitor · Reddit Grader', enabled: true },
+  { time: '6:00 PM', name: 'Demand Scout Evening · Reddit Grader', enabled: true },
+  { time: '7:00 PM', name: 'Forge Evening · Monitor', enabled: true },
+  { time: '9:00 PM', name: 'Obsidian Daily Sync', enabled: true },
+  { time: '10:50 PM', name: 'CardSnap Pre-SEO Cleanup', enabled: true },
+  { time: '11:00 PM', name: 'SEO Batch Nightly', skill: 'seo-batch', enabled: true },
+  { time: '11:30 PM', name: 'Hermes Master Doctor', enabled: false },
+  { time: 'Every 2h', name: 'Morning Brief', enabled: true },
+  { time: 'Fri 7:30 PM', name: 'Friday Metrics Sync', skill: 'friday-metrics-sync', enabled: true },
+  { time: 'Sun 9:00 AM', name: 'Freedom 50 Weekly Review', enabled: true },
+  { time: 'Mon 8:00 AM', name: 'CardSnap Script', skill: 'cardsnap-script', enabled: true },
+  { time: 'Mon 9:00 AM', name: 'CardSnap Weekly Content', skill: 'cardsnap-content-gen', enabled: true },
+  { time: 'Mon/Wed/Fri', name: 'CardSnap Signal Hunter', skill: 'cardsnap-signal-hunter', enabled: true },
+];
+
+type Tab = 'overview' | 'hermes' | 'linear' | 'skills' | 'projects' | 'schedule' | 'dataflow' | 'obsidian';
+
 export default function ArchitectureDashboard() {
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'agents' | 'projects' | 'dataflow' | 'hardware'>('overview');
 
-  const laptopAgents = agents.filter(a => a.location === 'laptop' || a.location === 'both');
-  const macminiAgents = agents.filter(a => a.location === 'macmini' || a.location === 'both');
-
-  const getAgent = (id: string) => agents.find(a => a.id === id);
+  const enabledJobs = cronSchedule.filter(j => j.enabled).length;
+  const priorityProjects = projects.filter(p => p.priority);
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>🏗️ OpenClaw System Architecture</h1>
+        <h1 style={styles.title}>⚡ Hermes System Architecture</h1>
         <p style={styles.subtitle}>
-          Hermes laptop (MacBook Air M2) + Mac mini (M1) · {agents.length} agents · {projects.length} projects
+          MacBook Air M2 · Hermes control plane · {skillDomains.reduce((n, d) => n + d.skills.length, 0)} skills ·{' '}
+          {enabledJobs} active cron jobs · {projects.length} properties
         </p>
         <p style={styles.hardwarePrinciples}>
-          <strong>How we split machines:</strong> the Air is the <em>control plane</em> (analysis, decisions, triggers,
-          you at the keyboard). The mini is the <em>muscle</em> (sustained CPU, batch work, builds, overnight jobs).
-          Prefer heavy work on the mini once; don’t duplicate the same pipeline on both. Connect with Tailscale or LAN
-          + SSH so the laptop can delegate without fragile port forwarding.
+          <strong>Current model:</strong> Hermes is the single control plane — cron triggers skills, skills write full
+          reports to Obsidian, Hermes delivers concise summaries to Telegram. No named agent personas; skills are the
+          units of automation. <strong>Income priority:</strong> CiteLens + CardSnap until consistent revenue signal.
         </p>
       </div>
 
-      {/* Tab Navigation */}
       <div style={styles.tabs}>
-        {(['overview', 'agents', 'projects', 'dataflow', 'hardware'] as const).map(tab => (
+        {(
+          [
+            ['overview', 'Overview'],
+            ['hermes', 'Hermes'],
+            ['linear', 'Linear'],
+            ['skills', 'Skills'],
+            ['projects', 'Projects'],
+            ['schedule', 'Schedule'],
+            ['dataflow', 'Dataflow'],
+            ['obsidian', 'Obsidian'],
+          ] as const
+        ).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              ...styles.tab,
-              ...(activeTab === tab ? styles.tabActive : styles.tabInactive),
-            }}
+            style={{ ...styles.tab, ...(activeTab === tab ? styles.tabActive : styles.tabInactive) }}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
       {activeTab === 'overview' && (
         <div style={styles.content}>
-          {/* System Diagram */}
           <div style={styles.diagramSection}>
             <SystemDiagramSVG />
           </div>
 
-          <div style={styles.systemGrid}>
-            {/* Laptop Section */}
-            <div style={styles.computerCard}>
-              <div style={styles.computerHeader}>
-                <h2 style={styles.computerTitle}>💻 MacBook Air M2 (Hermes)</h2>
-                <span style={styles.computerSubtitle}>Analysis & intelligence — keep orchestration light; avoid long sustained local compute</span>
-              </div>
-              <div style={styles.computerContent}>
-                <div style={styles.agentsList}>
-                  {laptopAgents.filter(a => a.location === 'laptop').map(agent => (
-                    <div
-                      key={agent.id}
-                      style={{...styles.agentBadge, borderLeftColor: agent.color}}
-                      onClick={() => setSelectedAgent(agent.id)}
-                    >
-                      <span style={styles.agentName}>{agent.name}</span>
-                      <span style={{...styles.agentRole, color: agent.color}}>{agent.role}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div style={styles.overviewGrid}>
+            <div style={styles.overviewCard}>
+              <h3 style={styles.overviewCardTitle}>Operating Contract</h3>
+              <ol style={styles.orderedList}>
+                <li>Cron fires job from <code>~/.hermes/cron/jobs.json</code></li>
+                <li>Hermes invokes skill or script via <code>run_with_logging.py</code></li>
+                <li>Full report written to Obsidian vault</li>
+                <li>Script prints concise stdout summary</li>
+                <li>Hermes delivers to Telegram (<code>deliver: telegram</code>)</li>
+              </ol>
+              <p style={styles.note}>Scripts never send Telegram directly.</p>
             </div>
 
-            {/* Mac Mini Section */}
-            <div style={styles.computerCard}>
-              <div style={styles.computerHeader}>
-                <h2 style={styles.computerTitle}>🖥️ Mac mini · Apple M1 (OpenClaw)</h2>
-                <span style={styles.computerSubtitle}>Execution & automation — better sustained load; schedule heavy cron here</span>
-              </div>
-              <div style={styles.computerContent}>
-                <div style={styles.agentsList}>
-                  {macminiAgents.filter(a => a.location === 'macmini').map(agent => (
-                    <div
-                      key={agent.id}
-                      style={{...styles.agentBadge, borderLeftColor: agent.color}}
-                      onClick={() => setSelectedAgent(agent.id)}
-                    >
-                      <span style={styles.agentName}>{agent.name}</span>
-                      <span style={{...styles.agentRole, color: agent.color}}>{agent.role}</span>
-                    </div>
-                  ))}
+            <div style={styles.overviewCard}>
+              <h3 style={styles.overviewCardTitle}>★ Income Priority</h3>
+              {priorityProjects.map(p => (
+                <div key={p.id} style={{ ...styles.priorityRow, borderLeftColor: p.color }}>
+                  <strong>{p.name}</strong>
+                  <span style={styles.priorityGoal}>{p.goal}</span>
                 </div>
-              </div>
+              ))}
+            </div>
+
+            <div style={styles.overviewCard}>
+              <h3 style={styles.overviewCardTitle}>Autonomous vs Manual</h3>
+              <p style={styles.splitLabel}>✅ Autonomous</p>
+              <p style={styles.splitText}>Cron jobs, growth intel, UGC packs, social posting, SEO batch, Obsidian sync</p>
+              <p style={styles.splitLabel}>🛑 Manual</p>
+              <p style={styles.splitText}>Deploys, commits, cron changes, publishing outreach, production code from Kanban</p>
+            </div>
+
+            <div style={styles.overviewCard}>
+              <h3 style={styles.overviewCardTitle}>Mental Model</h3>
+              <p style={styles.mentalModel}>
+                <strong>Obsidian</strong> = memory · <strong>Telegram</strong> = alert · <strong>Hermes</strong> = pipeline ·{' '}
+                <strong>Skills</strong> = brain · <strong>Cron</strong> = trigger · <strong>Linear</strong> = issue tracker
+              </p>
+              <p style={styles.note}>
+                Hermes-only scheduler (user crontab removed). Gateway via launchd:{' '}
+                <code>ai.hermes.gateway</code>
+              </p>
             </div>
           </div>
-
-          {/* Shared Systems */}
-          <div style={styles.sharedSection}>
-            <h3 style={styles.sharedTitle}>🔗 Shared Infrastructure</h3>
-            <div style={styles.sharedGrid}>
-              <div style={styles.infrastructureCard}>
-                <strong>Supabase</strong>
-                <p>FursBliss database & auth</p>
-              </div>
-              <div style={styles.infrastructureCard}>
-                <strong>Vercel Blob</strong>
-                <p>Image storage & CDN</p>
-              </div>
-              <div style={styles.infrastructureCard}>
-                <strong>Telegram</strong>
-                <p>Agent communication</p>
-              </div>
-              <div style={styles.infrastructureCard}>
-                <strong>Cron Jobs</strong>
-                <p>Scheduled automation</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Selected Agent Details */}
-          {selectedAgent && (
-            <AgentDetails agent={getAgent(selectedAgent)!} onClose={() => setSelectedAgent(null)} />
-          )}
         </div>
       )}
 
-      {activeTab === 'agents' && (
+      {activeTab === 'hermes' && (
         <div style={styles.content}>
-          <div style={styles.agentsGrid}>
-            {agents.map(agent => (
-              <div key={agent.id} style={{...styles.agentCard, borderTopColor: agent.color}}>
-                <h3 style={styles.agentCardName}>{agent.name}</h3>
-                <p style={{...styles.agentCardRole, color: agent.color}}>{agent.role}</p>
-                <p style={styles.agentCardModel}>{agent.model}</p>
-                <div style={styles.agentCardLocation}>
-                  {agent.location === 'macmini' && '🖥️ Mac mini'}
-                  {agent.location === 'laptop' && '💻 Laptop'}
-                  {agent.location === 'both' && '🔗 Both'}
-                </div>
-                <div style={styles.responsibilitiesList}>
-                  {agent.responsibilities.map((resp, i) => (
-                    <div key={i} style={styles.responsibility}>• {resp}</div>
+          <h2 style={styles.sectionTitle}>Hermes Control Plane</h2>
+          <p style={styles.sectionDesc}>
+            All automation runs through Hermes on the MacBook Air. Gateway handles Telegram/Discord; cron scheduler
+            invokes skills on schedule.
+          </p>
+          <div style={styles.pathGrid}>
+            {HERMES_PATHS.map(p => (
+              <div key={p.path} style={styles.pathCard}>
+                <code style={styles.pathCode}>{p.path}</code>
+                <p style={styles.pathDesc}>{p.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <h3 style={{ ...styles.sectionTitle, marginTop: 32, fontSize: 18 }}>Key Components</h3>
+          <div style={styles.componentGrid}>
+            <div style={styles.componentCard}>
+              <strong>Gateway (launchd)</strong>
+              <p>ai.hermes.gateway.plist · Telegram + Discord · deliver: telegram · gateway.log</p>
+            </div>
+            <div style={styles.componentCard}>
+              <strong>Cron Engine</strong>
+              <p>jobs.json only — no macOS crontab · retry · capture_logs · timeout_seconds</p>
+            </div>
+            <div style={styles.componentCard}>
+              <strong>Kanban Runner</strong>
+              <p>~/.hermes/kanban_runner.sh --next · allowlisted report skills only</p>
+            </div>
+            <div style={styles.componentCard}>
+              <strong>SaaS Ops Glue</strong>
+              <p>Aggregates briefs, keyword warehouse, backlink CRM, skill health</p>
+            </div>
+          </div>
+
+          <h3 style={{ ...styles.sectionTitle, marginTop: 32, fontSize: 18 }}>Mandatory Rules</h3>
+          <ul style={styles.orderedList}>
+            <li>All scheduled jobs through Hermes — never standalone crontab/launchd cron</li>
+            <li>Scripts load ~/.hermes/.env · write to Obsidian or ~/.hermes/results/</li>
+            <li>Scripts never send Telegram — Hermes handles delivery</li>
+            <li>Full output → Obsidian · stdout → one short summary only</li>
+            <li>launchd strips env — test with: <code>set -a; source ~/.hermes/.env; set +a</code></li>
+          </ul>
+        </div>
+      )}
+
+      {activeTab === 'linear' && (
+        <div style={styles.content}>
+          <LinearPanel />
+        </div>
+      )}
+
+      {activeTab === 'skills' && (
+        <div style={styles.content}>
+          <div style={styles.skillsGrid}>
+            {skillDomains.map(domain => (
+              <div
+                key={domain.id}
+                style={{ ...styles.skillCard, borderTopColor: domain.color }}
+                onClick={() => setSelectedDomain(selectedDomain === domain.id ? null : domain.id)}
+              >
+                <h3 style={{ ...styles.skillCardName, color: domain.color }}>{domain.name}</h3>
+                <p style={styles.skillSchedule}>{domain.schedule}</p>
+                <div style={styles.skillTags}>
+                  {domain.skills.map(s => (
+                    <span key={s} style={styles.skillTag}>{s}</span>
                   ))}
                 </div>
+                {selectedDomain === domain.id && (
+                  <p style={styles.skillDesc}>{domain.description}</p>
+                )}
               </div>
             ))}
           </div>
@@ -366,35 +420,60 @@ export default function ArchitectureDashboard() {
         <div style={styles.content}>
           <div style={styles.projectsGrid}>
             {projects.map(project => (
-              <div key={project.id} style={{...styles.projectCard, borderLeftColor: project.color}}>
+              <div
+                key={project.id}
+                style={{ ...styles.projectCard, borderLeftColor: project.color }}
+                onClick={() => setSelectedProject(selectedProject === project.id ? null : project.id)}
+              >
                 <div style={styles.projectHeader}>
-                  <h3 style={styles.projectName}>{project.name}</h3>
-                  <span style={{...styles.projectStatus, backgroundColor:
-                    project.status === 'active' ? '#10B981' :
-                    project.status === 'inactive' ? '#EF4444' : '#F59E0B'
-                  }}>
+                  <h3 style={styles.projectName}>
+                    {project.priority && '★ '}{project.name}
+                  </h3>
+                  <span
+                    style={{
+                      ...styles.projectStatus,
+                      backgroundColor:
+                        project.status === 'active' ? '#10B981' :
+                        project.status === 'paused' ? '#EF4444' : '#F59E0B',
+                    }}
+                  >
                     {project.status}
                   </span>
                 </div>
-                <p style={styles.projectType}>{project.type}</p>
-                <p style={styles.projectLocation}>
-                  {project.location === 'macmini' && '🖥️ Mac mini'}
-                  {project.location === 'laptop' && '💻 Laptop'}
-                  {project.location === 'both' && '🔗 Both'}
-                </p>
-                <div style={styles.agentsList}>
-                  <strong>Agents:</strong>
-                  <div style={styles.projectAgents}>
-                    {project.agents.map(agentId => {
-                      const agent = getAgent(agentId);
-                      return agent ? (
-                        <span key={agentId} style={{...styles.projectAgent, backgroundColor: agent.color}}>
-                          {agent.name}
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
+                <p style={styles.projectDomain}>{project.domain}</p>
+                <p style={styles.projectRepo}>{project.repo}</p>
+                {selectedProject === project.id && (
+                  <>
+                    <p style={styles.projectObsidian}><strong>Obsidian:</strong> {project.obsidian}</p>
+                    <p style={styles.projectGoal}><strong>Goal:</strong> {project.goal}</p>
+                    <div style={styles.cronList}>
+                      {project.cronJobs.map(j => (
+                        <span key={j} style={styles.cronBadge}>{j}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'schedule' && (
+        <div style={styles.content}>
+          <p style={styles.sectionDesc}>
+            Daily automation timeline from <code>~/.hermes/cron/jobs.json</code>. Disabled jobs shown in gray.
+          </p>
+          <div style={styles.scheduleList}>
+            {cronSchedule.map(job => (
+              <div
+                key={`${job.time}-${job.name}`}
+                style={{ ...styles.scheduleRow, opacity: job.enabled ? 1 : 0.45 }}
+              >
+                <span style={styles.scheduleTime}>{job.time}</span>
+                <span style={styles.scheduleName}>{job.name}</span>
+                {job.skill && <span style={styles.scheduleSkill}>{job.skill}</span>}
+                {!job.enabled && <span style={styles.schedulePaused}>paused</span>}
               </div>
             ))}
           </div>
@@ -403,501 +482,420 @@ export default function ArchitectureDashboard() {
 
       {activeTab === 'dataflow' && (
         <div style={styles.content}>
-          <DataFlowDiagram agents={agents} projects={projects} />
+          <DataFlowPanel />
         </div>
       )}
 
-      {activeTab === 'hardware' && (
+      {activeTab === 'obsidian' && (
         <div style={styles.content}>
-          <HardwareSplit />
+          <h2 style={styles.sectionTitle}>Obsidian Knowledge Layer</h2>
+          <p style={styles.sectionDesc}>
+            Full reports land in Obsidian; Telegram gets the summary. SaaS Ops aggregates cross-property intelligence.
+          </p>
+          <div style={styles.pathGrid}>
+            {OBSIDIAN_PATHS.map(p => (
+              <div key={p.path} style={styles.pathCard}>
+                <code style={styles.pathCode}>{p.path}</code>
+                <p style={styles.pathDesc}>{p.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <h3 style={{ ...styles.sectionTitle, marginTop: 32, fontSize: 18 }}>Morning Operator Checklist</h3>
+          <ol style={styles.orderedList}>
+            <li>Open Kanban dashboard: <code>orchestration/agent_orchestration_kanban.md</code></li>
+            <li>Read operator brief: <code>saas_ops/operator_briefs/</code></li>
+            <li>Review CiteLens + CardSnap revenue actions first</li>
+            <li>Check keyword warehouse + Kanban queue</li>
+            <li>Run one safe task: <code>~/.hermes/kanban_runner.sh --next</code></li>
+            <li>Pick ONE revenue action (page, landing page, outreach, backlink)</li>
+            <li>Refresh SaaS Ops: <code>hermes-saas-ops/scripts/saas_ops.py</code></li>
+          </ol>
         </div>
       )}
     </div>
   );
 }
 
-function HardwareSplit() {
+function LinearPanel() {
   return (
-    <div style={styles.hardwarePanel}>
-      <h2 style={styles.hardwarePanelTitle}>Hardware split (why this matters)</h2>
-      <ul style={styles.hardwareList}>
-        <li style={styles.hardwareListItem}>
-          <strong>MacBook Air M2 (Hermes)</strong> — excellent for mobility and interactive work; thermals and “always on”
-          are weaker than a desktop. Best for orchestration, monitoring, and analysis that does not hammer the CPU for long
-          stretches. Hermes / gateway fits here when it is mostly coordinating APIs, not huge local model runs or massive
-          parallel batches.
-        </li>
-        <li style={styles.hardwareListItem}>
-          <strong>Mac mini M1</strong> — better sustained performance; leave it on for batch work, cron, generators, retries,
-          and repo automation.
-        </li>
-        <li style={styles.hardwareListItem}>
-          <strong>Avoid duplication</strong> — one scheduler, clear ownership: mini executes heavy work; laptop does not
-          re-run the same pipeline “just in case.”
-        </li>
-        <li style={styles.hardwareListItem}>
-          <strong>Network</strong> — use Tailscale or LAN + SSH so the laptop can trigger scripts on the mini reliably.
-        </li>
-      </ul>
-      <div style={styles.hardwareCronSketch}>
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#1a1a1a' }}>Example cron placement</h3>
-        <p style={{ margin: 0, fontSize: '14px', color: '#666', lineHeight: 1.6 }}>
-          Lightweight briefings can run on the laptop; research syncs, content packs, and Blob automation that hit APIs
-          hard or run long — prefer the mini.
-        </p>
+    <div>
+      <h2 style={styles.sectionTitle}>Linear — Team HER (Hermes123)</h2>
+      <p style={styles.sectionDesc}>
+        Issue tracking integrated across Hermes diagnostics and all dev tools (Cursor, Claude, Codex).
+        Docs: <code>~/.hermes/docs/LINEAR_DASHBOARD.md</code>
+      </p>
+
+      <a
+        href="https://linear.app/hermes123/team/HER/active"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={styles.linearBoardLink}
+      >
+        Open Linear Board → filter Todo + In Progress for current problems
+      </a>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Three Rules (all agents)</h3>
+      <ol style={styles.orderedList}>
+        {LINEAR_RULES.map((rule, i) => (
+          <li key={i}>{rule}</li>
+        ))}
+      </ol>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Issue Naming</h3>
+      <div style={styles.namingGrid}>
+        {['Fix: bugs, broken cron/gateway/API', 'Add: new automation or features', 'Cleanup: repo hygiene', 'Tech debt: upgrades (Python 3.11, etc.)'].map(n => (
+          <span key={n} style={styles.namingBadge}>{n}</span>
+        ))}
       </div>
-    </div>
-  );
-}
 
-interface AgentDetailsProps {
-  agent: Agent;
-  onClose: () => void;
-}
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Commands</h3>
+      <div style={styles.pathGrid}>
+        <div style={styles.pathCard}>
+          <code style={styles.pathCode}>python3 ~/.hermes/scripts/hermes_master_check.py --save</code>
+          <p style={styles.pathDesc}>Full diagnostic — ends with Linear dashboard summary</p>
+        </div>
+        <div style={styles.pathCard}>
+          <code style={styles.pathCode}>python3 ~/.hermes/scripts/linear_dashboard.py</code>
+          <p style={styles.pathDesc}>Standalone open/done issue summary (reads LINEAR_API_KEY from .env)</p>
+        </div>
+      </div>
 
-function AgentDetails({ agent, onClose }: AgentDetailsProps) {
-  return (
-    <div style={styles.modal}>
-      <div style={{...styles.modalContent, borderTopColor: agent.color}}>
-        <button onClick={onClose} style={styles.closeButton}>✕</button>
-        <h2 style={{color: agent.color}}>{agent.name}</h2>
-        <p><strong>Role:</strong> {agent.role}</p>
-        <p><strong>Model:</strong> {agent.model}</p>
-        <p><strong>Location:</strong>
-          {agent.location === 'macmini' && ' 🖥️ Mac mini'}
-          {agent.location === 'laptop' && ' 💻 Laptop'}
-          {agent.location === 'both' && ' 🔗 Both'}
-        </p>
-        <div style={styles.responsibilitiesSection}>
-          <h4>Responsibilities:</h4>
-          {agent.responsibilities.map((resp, i) => (
-            <div key={i} style={styles.responsibility}>✓ {resp}</div>
-          ))}
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Dev Tools + Linear MCP</h3>
+      <p style={styles.sectionDesc}>All tools auto-create Linear issues in team Hermes123 when starting work.</p>
+      <div style={styles.devToolsGrid}>
+        {DEV_TOOLS.map(tool => (
+          <div key={tool.name} style={styles.devToolCard}>
+            <strong>{tool.name}</strong>
+            <p style={styles.pathDesc}>{tool.config}</p>
+            <p style={{ ...styles.pathDesc, color: '#7c3aed' }}>{tool.linear}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 28, fontSize: 18 }}>Linear Views</h3>
+      <div style={styles.componentGrid}>
+        <div style={styles.componentCard}>
+          <strong>All issues → state filter</strong>
+          <p>Current open problems — use Todo + In Progress for health</p>
+        </div>
+        <div style={styles.componentCard}>
+          <strong>My issues → Assigned</strong>
+          <p>Your personal queue</p>
+        </div>
+        <div style={styles.componentCard}>
+          <strong>My issues → Activity</strong>
+          <p>Personal history only — NOT system health</p>
         </div>
       </div>
     </div>
   );
 }
 
-interface DataFlowDiagramProps {
-  agents: Agent[];
-  projects: Project[];
-}
+function DataFlowPanel() {
+  const flows = [
+    {
+      title: '🎬 MoviesLike Page Generation',
+      steps: ['Vega GSC (6 AM) → priority signals', 'Forge (7/1/7 PM) → page triggers', 'SEO Batch (11 PM) → batch publish', 'Obsidian report → Telegram summary'],
+    },
+    {
+      title: '★ CiteLens + CardSnap Growth',
+      steps: ['Growth intel script → keyword/opportunity scan', 'UGC daily pack → Remotion MP4 + approval doc', 'Full report → Obsidian vault', 'Telegram: caption + file paths for review'],
+    },
+    {
+      title: '🐾 FursBliss Daily Social',
+      steps: ['Campaign skill (9 AM) → post copy', 'DALL-E (9:30 AM) → image → Vercel Blob', 'Social skill (10 AM) → IG/FB via Meta API', 'Pet symptom ideas → Obsidian SEO queue'],
+    },
+    {
+      title: '📊 SaaS Ops Aggregation',
+      steps: ['Individual skill reports write to Obsidian', 'hermes-saas-ops aggregates → operator brief', 'Keyword warehouse + backlink CRM updated', 'Kanban runner executes allowlisted report tasks'],
+    },
+    {
+      title: '🔍 Research Loop',
+      steps: ['Demand Scout (8 AM + 6 PM) → opportunity scan', 'Market Intel (11 AM) → trend report', 'SEO Chief (7:05 AM) → daily SEO priorities', 'All → Obsidian → Telegram digest'],
+    },
+    {
+      title: '🏥 System Health',
+      steps: ['GEO Monitor (7:15 AM) → 5-property schema/meta check', 'Build Checks (10:15 AM) → Vercel build status', 'Friday Metrics → Stripe/GA4/Supabase rollup', 'Obsidian Sync (9 PM) → vault consolidation'],
+    },
+    {
+      title: '📋 Linear + Fix Workflow',
+      steps: ['Bug detected → create HER issue (In Progress) before editing', 'Fix → verify with hermes_master_check.py', 'Same-day PASS → mark Done · recurrence → reopen, don\'t duplicate', 'Master check prints Linear dashboard at end'],
+    },
+  ];
 
-function DataFlowDiagram({ agents, projects }: DataFlowDiagramProps) {
   return (
     <div style={styles.dataflowContainer}>
-      <h2 style={styles.dataflowTitle}>Data & Communication Flow</h2>
-      <div style={styles.dataflowContent}>
-        <div style={styles.dataflowSection}>
-          <h3>📊 Morning Cycle (8 AM Mac mini)</h3>
-          <div style={styles.dataflowStep}>
-            <span>Dot (Laptop)</span>
-            <span style={{color: '#999'}}>→ Daily Analytics Briefing</span>
-            <span>Gary (Mac mini)</span>
+      <h2 style={styles.dataflowTitle}>Data & Communication Flows</h2>
+      <div style={styles.dataflowGrid}>
+        {flows.map(flow => (
+          <div key={flow.title} style={styles.dataflowSection}>
+            <h3 style={styles.dataflowSectionTitle}>{flow.title}</h3>
+            {flow.steps.map((step, i) => (
+              <div key={i} style={styles.dataflowStep}>
+                <span style={styles.stepNum}>{i + 1}</span>
+                <span>{step}</span>
+              </div>
+            ))}
           </div>
-          <div style={styles.dataflowStep}>
-            <span>Joyce (Mac mini)</span>
-            <span style={{color: '#999'}}>→ Research Synthesis</span>
-            <span>Forge (Laptop)</span>
-          </div>
-        </div>
-
-        <div style={styles.dataflowSection}>
-          <h3>📱 Content Distribution Flow</h3>
-          <div style={styles.dataflowStep}>
-            <span>Luna (Mac mini)</span>
-            <span style={{color: '#999'}}>→ Visual Assets</span>
-            <span>Rico (Mac mini)</span>
-          </div>
-          <div style={styles.dataflowStep}>
-            <span>Rico (Mac mini)</span>
-            <span style={{color: '#999'}}>→ Formatted Posts</span>
-            <span>Discord Bot / Ralph</span>
-          </div>
-        </div>
-
-        <div style={styles.dataflowSection}>
-          <h3>🔄 FursBliss Engagement Loop</h3>
-          <div style={styles.dataflowStep}>
-            <span>Milo (Laptop)</span>
-            <span style={{color: '#999'}}>→ Supabase Queries</span>
-            <span>User Behavior Data</span>
-          </div>
-          <div style={styles.dataflowStep}>
-            <span>Milo (Laptop)</span>
-            <span style={{color: '#999'}}>→ Email Drafts</span>
-            <span>Rico (Mac mini Review)</span>
-          </div>
-        </div>
-
-        <div style={styles.dataflowSection}>
-          <h3>🎬 Movie Page Generation</h3>
-          <div style={styles.dataflowStep}>
-            <span>Forge (Laptop)</span>
-            <span style={{color: '#999'}}>→ Trigger Generation</span>
-            <span>Gary (Mac mini)</span>
-          </div>
-          <div style={styles.dataflowStep}>
-            <span>Vega (Laptop)</span>
-            <span style={{color: '#999'}}>→ SEO Signals</span>
-            <span>Forge Priority Scoring</span>
-          </div>
-        </div>
-
-        <div style={styles.dataflowSection}>
-          <h3>⏰ Communication Channel</h3>
-          <div style={{padding: '12px', backgroundColor: '#f0f0f0', borderRadius: '6px'}}>
-            <strong>Telegram Bots:</strong> Laptop ops channel vs Mac mini ops channel
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     maxWidth: 1400,
     margin: '0 auto',
     padding: '40px 20px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     backgroundColor: '#ffffff',
-  } as React.CSSProperties,
-  header: {
-    marginBottom: '40px',
-    textAlign: 'center' as const,
   },
-  title: {
-    fontSize: '42px',
-    fontWeight: '700',
-    margin: '0 0 12px 0',
-    color: '#1a1a1a',
-  },
-  subtitle: {
-    fontSize: '16px',
-    color: '#666',
-    margin: 0,
-  },
+  header: { marginBottom: 40, textAlign: 'center' },
+  title: { fontSize: 42, fontWeight: 700, margin: '0 0 12px', color: '#1a1a1a' },
+  subtitle: { fontSize: 16, color: '#666', margin: 0 },
   hardwarePrinciples: {
     maxWidth: 900,
     margin: '20px auto 0',
     padding: '16px 20px',
-    fontSize: '14px',
+    fontSize: 14,
     lineHeight: 1.65,
     color: '#374151',
-    backgroundColor: '#f0fdf4',
-    border: '1px solid #bbf7d0',
-    borderRadius: '10px',
-    textAlign: 'left' as const,
-  },
-  hardwarePanel: {
-    maxWidth: 900,
-    margin: '0 auto',
-    padding: '8px 0',
-  },
-  hardwarePanelTitle: {
-    fontSize: '22px',
-    fontWeight: 600,
-    margin: '0 0 20px 0',
-    color: '#1a1a1a',
-  },
-  hardwareList: {
-    margin: 0,
-    paddingLeft: '22px',
-    color: '#374151',
-    fontSize: '15px',
-    lineHeight: 1.65,
-  },
-  hardwareListItem: {
-    marginBottom: '16px',
-  },
-  hardwareCronSketch: {
-    marginTop: '28px',
-    padding: '18px',
     backgroundColor: '#faf5ff',
     border: '1px solid #e9d5ff',
-    borderRadius: '10px',
+    borderRadius: 10,
+    textAlign: 'left',
   },
   tabs: {
     display: 'flex',
-    gap: '8px',
-    marginBottom: '40px',
+    gap: 8,
+    marginBottom: 40,
     borderBottom: '2px solid #e5e7eb',
-    paddingBottom: '16px',
+    paddingBottom: 16,
     justifyContent: 'center',
-  } as React.CSSProperties,
+    flexWrap: 'wrap',
+  },
   tab: {
     padding: '8px 16px',
     border: 'none',
     background: 'none',
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: 500,
     transition: 'all 0.3s',
-  } as React.CSSProperties,
-  tabActive: {
-    color: '#8B5CF6',
-    borderBottom: '3px solid #8B5CF6',
-  } as React.CSSProperties,
-  tabInactive: {
-    color: '#999',
-  } as React.CSSProperties,
-  content: {
-    animation: 'fadeIn 0.3s',
-  } as React.CSSProperties,
-  systemGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-    gap: '32px',
-    marginBottom: '40px',
-  } as React.CSSProperties,
-  computerCard: {
-    border: '2px solid #e5e7eb',
-    borderRadius: '12px',
-    padding: '24px',
+  },
+  tabActive: { color: '#8B5CF6', borderBottom: '3px solid #8B5CF6' },
+  tabInactive: { color: '#999' },
+  content: { animation: 'fadeIn 0.3s' },
+  diagramSection: {
+    padding: 24,
     backgroundColor: '#f9fafb',
-  } as React.CSSProperties,
-  computerHeader: {
-    marginBottom: '24px',
+    borderRadius: 12,
+    marginBottom: 40,
+    border: '1px solid #e5e7eb',
   },
-  computerTitle: {
-    fontSize: '24px',
-    fontWeight: '700',
-    margin: '0 0 4px 0',
-    color: '#1a1a1a',
+  overviewGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: 24,
   },
-  computerSubtitle: {
-    fontSize: '13px',
-    color: '#666',
+  overviewCard: {
+    padding: 20,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    border: '1px solid #e5e7eb',
   },
-  computerContent: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  agentsList: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  agentBadge: {
-    padding: '12px 16px',
+  overviewCardTitle: { fontSize: 16, fontWeight: 600, margin: '0 0 12px', color: '#1a1a1a' },
+  orderedList: { margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8, color: '#374151' },
+  note: { fontSize: 12, color: '#999', marginTop: 12, fontStyle: 'italic' },
+  priorityRow: {
+    padding: '10px 12px',
+    marginBottom: 8,
     backgroundColor: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    borderLeftWidth: '4px',
-    borderLeftStyle: 'solid',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  } as React.CSSProperties,
-  agentName: {
-    fontWeight: '600',
-    color: '#1a1a1a',
+    borderRadius: 8,
+    borderLeft: '4px solid',
   },
-  agentRole: {
-    fontSize: '12px',
-    fontWeight: '500',
-  },
-  sharedSection: {
-    marginBottom: '40px',
-  },
-  sharedTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    marginBottom: '16px',
-    color: '#1a1a1a',
-  },
-  sharedGrid: {
+  priorityGoal: { display: 'block', fontSize: 12, color: '#666', marginTop: 4 },
+  splitLabel: { fontSize: 13, fontWeight: 600, margin: '12px 0 4px', color: '#374151' },
+  splitText: { fontSize: 13, color: '#666', margin: 0, lineHeight: 1.5 },
+  sectionTitle: { fontSize: 22, fontWeight: 600, margin: '0 0 8px', color: '#1a1a1a' },
+  sectionDesc: { fontSize: 14, color: '#666', marginBottom: 24, lineHeight: 1.6 },
+  pathGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-  } as React.CSSProperties,
-  infrastructureCard: {
-    padding: '16px',
-    backgroundColor: '#f0f9ff',
-    border: '1px solid #bfdbfe',
-    borderRadius: '8px',
-    fontSize: '14px',
-  } as React.CSSProperties,
-  agentsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '24px',
-  } as React.CSSProperties,
-  agentCard: {
-    padding: '20px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: 12,
+  },
+  pathCard: {
+    padding: '12px 16px',
     backgroundColor: '#f9fafb',
-    borderTopWidth: '4px',
+    borderRadius: 8,
+    border: '1px solid #e5e7eb',
+  },
+  pathCode: { fontSize: 13, fontWeight: 600, color: '#7c3aed', fontFamily: 'monospace' },
+  pathDesc: { fontSize: 12, color: '#666', margin: '6px 0 0' },
+  componentGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: 16,
+  },
+  componentCard: {
+    padding: 16,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    border: '1px solid #bfdbfe',
+    fontSize: 13,
+  },
+  skillsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gap: 24,
+  },
+  skillCard: {
+    padding: 20,
+    border: '1px solid #e5e7eb',
+    borderRadius: 12,
+    backgroundColor: '#f9fafb',
+    borderTopWidth: 4,
     borderTopStyle: 'solid',
-  } as React.CSSProperties,
-  agentCardName: {
-    fontSize: '18px',
-    fontWeight: '700',
-    margin: '0 0 4px 0',
-    color: '#1a1a1a',
+    cursor: 'pointer',
   },
-  agentCardRole: {
-    fontSize: '13px',
-    fontWeight: '500',
-    margin: '0 0 4px 0',
-  },
-  agentCardModel: {
-    fontSize: '12px',
-    color: '#999',
-    margin: '0 0 8px 0',
-  },
-  agentCardLocation: {
-    fontSize: '12px',
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: '12px',
-    padding: '4px 8px',
+  skillCardName: { fontSize: 18, fontWeight: 700, margin: '0 0 8px' },
+  skillSchedule: { fontSize: 12, color: '#999', marginBottom: 12 },
+  skillTags: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  skillTag: {
+    padding: '3px 8px',
     backgroundColor: '#e5e7eb',
-    borderRadius: '4px',
-    width: 'fit-content',
-  } as React.CSSProperties,
-  responsibilitiesList: {
-    fontSize: '13px',
-    color: '#666',
-    lineHeight: '1.6',
-  } as React.CSSProperties,
-  responsibility: {
-    marginBottom: '6px',
+    borderRadius: 4,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: '#374151',
   },
+  skillDesc: { fontSize: 13, color: '#666', marginTop: 12, lineHeight: 1.6 },
   projectsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '24px',
-  } as React.CSSProperties,
+    gap: 24,
+  },
   projectCard: {
-    padding: '20px',
+    padding: 20,
     border: '1px solid #e5e7eb',
-    borderRadius: '12px',
+    borderRadius: 12,
     backgroundColor: '#f9fafb',
-    borderLeftWidth: '6px',
+    borderLeftWidth: 6,
     borderLeftStyle: 'solid',
-  } as React.CSSProperties,
-  projectHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'start',
-    marginBottom: '12px',
-  } as React.CSSProperties,
-  projectName: {
-    fontSize: '18px',
-    fontWeight: '700',
-    margin: 0,
-    color: '#1a1a1a',
+    cursor: 'pointer',
   },
+  projectHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 8 },
+  projectName: { fontSize: 18, fontWeight: 700, margin: 0, color: '#1a1a1a' },
   projectStatus: {
-    fontSize: '11px',
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: 600,
     padding: '4px 8px',
-    borderRadius: '4px',
+    borderRadius: 4,
     color: '#fff',
-    textTransform: 'capitalize' as const,
+    textTransform: 'capitalize',
   },
-  projectType: {
-    fontSize: '13px',
-    color: '#666',
-    margin: '0 0 8px 0',
-  },
-  projectLocation: {
-    fontSize: '12px',
-    fontWeight: '500',
-    color: '#666',
-    margin: '0 0 12px 0',
-  },
-  projectAgents: {
-    display: 'flex',
-    flexWrap: 'wrap' as const,
-    gap: '6px',
-    marginTop: '8px',
-  },
-  projectAgent: {
+  projectDomain: { fontSize: 13, color: '#8B5CF6', margin: '0 0 4px' },
+  projectRepo: { fontSize: 12, fontFamily: 'monospace', color: '#666', margin: 0 },
+  projectObsidian: { fontSize: 12, color: '#666', marginTop: 12 },
+  projectGoal: { fontSize: 12, color: '#666', marginTop: 4 },
+  cronList: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  cronBadge: {
     padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '11px',
-    fontWeight: '600',
-    color: '#fff',
+    backgroundColor: '#ede9fe',
+    borderRadius: 4,
+    fontSize: 11,
+    color: '#7c3aed',
   },
-  dataflowContainer: {
-    padding: '24px',
-    backgroundColor: '#f9fafb',
-    borderRadius: '12px',
-  },
-  dataflowTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    margin: '0 0 24px 0',
-    color: '#1a1a1a',
-  },
-  dataflowContent: {
+  scheduleList: { display: 'flex', flexDirection: 'column', gap: 4 },
+  scheduleRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-    gap: '24px',
-  } as React.CSSProperties,
-  dataflowSection: {
-    padding: '16px',
-    backgroundColor: '#fff',
-    borderRadius: '8px',
+    gridTemplateColumns: '120px 1fr auto auto',
+    gap: 16,
+    alignItems: 'center',
+    padding: '10px 16px',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
     border: '1px solid #e5e7eb',
-  } as React.CSSProperties,
+    fontSize: 13,
+  },
+  scheduleTime: { fontWeight: 600, color: '#7c3aed', fontFamily: 'monospace' },
+  scheduleName: { color: '#1a1a1a' },
+  scheduleSkill: {
+    padding: '2px 8px',
+    backgroundColor: '#e5e7eb',
+    borderRadius: 4,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: '#374151',
+  },
+  schedulePaused: { fontSize: 11, color: '#EF4444', fontWeight: 600 },
+  dataflowContainer: { padding: 24, backgroundColor: '#f9fafb', borderRadius: 12 },
+  dataflowTitle: { fontSize: 20, fontWeight: 600, margin: '0 0 24px', color: '#1a1a1a' },
+  dataflowGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+    gap: 20,
+  },
+  dataflowSection: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    border: '1px solid #e5e7eb',
+  },
+  dataflowSectionTitle: { fontSize: 15, fontWeight: 600, margin: '0 0 12px', color: '#1a1a1a' },
   dataflowStep: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    fontSize: '13px',
-    marginTop: '12px',
-    marginBottom: '12px',
-  } as React.CSSProperties,
-  diagramSection: {
-    padding: '24px',
-    backgroundColor: '#f9fafb',
-    borderRadius: '12px',
-    marginBottom: '40px',
-    border: '1px solid #e5e7eb',
-  } as React.CSSProperties,
-  modal: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    gap: 10,
+    fontSize: 13,
+    marginBottom: 8,
+    color: '#374151',
+  },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: '50%',
+    backgroundColor: '#ede9fe',
+    color: '#7c3aed',
+    fontSize: 11,
+    fontWeight: 700,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
+    flexShrink: 0,
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    padding: '32px',
-    maxWidth: '500px',
-    width: '90%',
-    position: 'relative' as const,
-    borderTopWidth: '6px',
-    borderTopStyle: 'solid' as const,
-    boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-  } as React.CSSProperties,
-  closeButton: {
-    position: 'absolute' as const,
-    top: '16px',
-    right: '16px',
-    background: 'none',
-    border: 'none',
-    fontSize: '24px',
-    cursor: 'pointer',
-    color: '#999',
+  mentalModel: { fontSize: 14, color: '#374151', lineHeight: 1.7, margin: 0 },
+  linearBoardLink: {
+    display: 'inline-block',
+    padding: '12px 20px',
+    backgroundColor: '#5E6AD2',
+    color: '#fff',
+    borderRadius: 8,
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: 14,
+    marginBottom: 8,
   },
-  responsibilitiesSection: {
-    marginTop: '16px',
+  namingGrid: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  namingBadge: {
+    padding: '6px 12px',
+    backgroundColor: '#eef2ff',
+    borderRadius: 6,
+    fontSize: 12,
+    color: '#4338ca',
+  },
+  devToolsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: 12,
+  },
+  devToolCard: {
+    padding: 14,
+    backgroundColor: '#faf5ff',
+    borderRadius: 8,
+    border: '1px solid #e9d5ff',
+    fontSize: 13,
   },
 };
